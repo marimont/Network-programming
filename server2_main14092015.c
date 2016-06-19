@@ -1,8 +1,8 @@
-#include "../myunp.h"
-#include "../mysock.h"
-#include "../errlib.h"
-#include "../mystartup.h"
-#include "../mytcp.h"
+#include "src/myunp.h"
+#include "src/mysock.h"
+#include "src/errlib.h"
+#include "src/mystartup.h"
+#include "src/mytcp.h"
 
 #define LISTENQ 15
 #define BLOCKSIZE 1048576

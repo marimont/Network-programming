@@ -1,8 +1,8 @@
-#include "../myunp.h"
-#include "../mysock.h"
-#include "../mystartup.h"
-#include "../mytcp.h"
-#include "../errlib.h"
+#include "src/myunp.h"
+#include "src/mysock.h"
+#include "src/errlib.h"
+#include "src/mystartup.h"
+#include "src/mytcp.h"
 
 #define MAXTRIALS 4
 
