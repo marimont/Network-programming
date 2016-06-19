@@ -10,17 +10,18 @@ bool_t myStdIOReadXdr(int sockfd, xdr_function xdr_func, void *data){
 	FILE *fp;
 	XDR xdrs;
 	
-	if( (fp = fdopen(dup(sockfd), "r")) == NULL){	/*duplicating the file desciptor prevents to accidentally close the socket and 								 *allows multiprocess programming without causing any danger*/
+	if( (fp = fdopen(dup(sockfd), "r")) == NULL){
 		fprintf(stderr, "(%s) --- can't perform fdopen - %s\n", prog_name, strerror(errno)); return FALSE;
 	}
 	xdrstdio_create(&xdrs, fp, XDR_DECODE);
+	printf("stdioread\n");
 	if(!xdr_func(&xdrs, data)){
 		fprintf(stderr, "(%s) --- can't read from xdr stream - %s\n", prog_name, strerror(errno)); 
 		xdr_destroy(&xdrs);
 		fclose(fp);
 		return FALSE;
 	}
-	
+	printf("stdioread2\n");
 	xdr_destroy(&xdrs);
 	fclose(fp);
 	return TRUE;

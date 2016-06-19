@@ -66,11 +66,49 @@ again:
 	return n;
 }
 
+/*in this way, if the function is called within a forever loop of a server
+ * in case of error It will not kill the server but it  will return the
+ * error code. I manage SIGNALS but at the same I need to explicitely 
+ * manage the returned value
+ * */
+
+int myAccept (int listen_sockfd, SA *cliaddr, socklen_t *addrlenp){
+	int n;
+again:
+	if ( (n = accept(listen_sockfd, cliaddr, addrlenp)) < 0)
+	{
+		if (INTERRUPTED_BY_SIGNAL ||
+			errno == EPROTO || errno == ECONNABORTED ||
+			errno == EMFILE || errno == ENFILE ||
+			errno == ENOBUFS || errno == ENOMEM			
+		    )
+			goto again;
+		else{
+			err_msg ("(%s) error - accept() failed", prog_name); 
+			return n;
+		}
+	}
+	return n;
+}
+
 
 void Connect (int sockfd, const SA *srvaddr, socklen_t addrlen)
 {
 	if ( connect(sockfd, srvaddr, addrlen) != 0)
 		err_sys ("(%s) error - connect() failed", prog_name);
+}
+
+
+/*even if it seems redundant, in this way I normalize error codes:
+ * -1 for errors, 0 for success*/
+int myConnect (int sockfd, const SA *srvaddr, socklen_t addrlen)
+{
+	if ( connect(sockfd, srvaddr, addrlen) != 0){
+		err_msg ("(%s) error - connect() failed", prog_name);
+		return -1;
+	}
+	
+	return 0;
 }
 
 
@@ -80,13 +118,20 @@ void Close (int fd)
 		err_sys ("(%s) error - close() failed", prog_name);
 }
 
+int myClose (int fd)
+{
+	if (close(fd) != 0){
+		err_msg ("(%s) error - close() failed", prog_name); return -1;
+	}
+	return 0;
+}
+
 
 void Shutdown (int fd, int howto)
 {
 	if (shutdown(fd,howto) != 0)
 		err_sys ("(%s) error - shutdown() failed", prog_name);
 }
-
 
 ssize_t Read (int fd, void *bufptr, size_t nbytes)
 {
@@ -98,6 +143,25 @@ again:
 			goto again;
 		else
 			err_sys ("(%s) error - read() failed", prog_name);
+	}
+	return n;
+}
+
+/*even if it seems redundant, in this way I normalize error codes:
+ * -1 for errors, 0 for success and at the same I perform the check
+ * on interrupt signals*/
+
+ssize_t myRead (int fd, void *bufptr, size_t nbytes)
+{
+	ssize_t n;
+again:
+	if ( (n = read(fd,bufptr,nbytes)) < 0)
+	{
+		if (INTERRUPTED_BY_SIGNAL)
+			goto again;
+		else{
+			err_msg("(%s) error - read() failed", prog_name); return -1;
+		}
 	}
 	return n;
 }
@@ -118,12 +182,31 @@ ssize_t Recv(int fd, void *bufptr, size_t nbytes, int flags)
 	return n;
 }
 
+int myWrite (int fd, void *bufptr, size_t nbytes)
+{
+	if (write(fd,bufptr,nbytes) != nbytes){
+		err_msg("(%s) error - write() failed", prog_name);
+		return -1;
+	}
+	return 0;
+}
+
 ssize_t Recvfrom (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr)
 {
 	ssize_t n;
 
 	if ( (n = recvfrom(fd,bufptr,nbytes,flags,sa,salenptr)) < 0)
 		err_sys ("(%s) error - recvfrom() failed", prog_name);
+	return n;
+}
+
+ssize_t myRecvfrom (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr)
+{
+	ssize_t n;
+
+	if ( (n = recvfrom(fd,bufptr,nbytes,flags,sa,salenptr)) < 0){
+		err_msg ("(%s) error - recvfrom() failed", prog_name); return -1;
+	}
 	return n;
 }
 
@@ -136,13 +219,37 @@ again:
 	{
 		if (INTERRUPTED_BY_SIGNAL)
 		{
-			if (errno==EINTR && timeout)
+			if (errno==EINTR && timeout){
+				err_msg("(%s) recvfrom() - timeout expired", prog_name);
 				return -1;
-			else
+			}else
 				goto again;
 		}
 		else
 			err_sys ("(%s) error - recvfrom() failed", prog_name);
+		
+	}
+	return n;
+}
+
+ssize_t myRecvfrom_timeout (int fd, void *bufptr, size_t nbytes, int flags, SA *sa, socklen_t *salenptr, int timeout)
+{
+	ssize_t n;
+again:
+	if ( (n = recvfrom(fd,bufptr,nbytes,flags,sa,salenptr)) < 0)
+	{
+		if (INTERRUPTED_BY_SIGNAL)
+		{
+			if (errno==EINTR && timeout){
+				err_msg("(%s) recvfrom() - timeout expired", prog_name);
+				return -1;
+			}else
+				goto again;
+		}
+		else{
+			err_msg ("(%s) error - recvfrom() failed", prog_name); return -1;
+		}
+		
 	}
 	return n;
 }
@@ -152,6 +259,15 @@ void Sendto (int fd, void *bufptr, size_t nbytes, int flags, const SA *sa, sockl
 {
 	if (sendto(fd,bufptr,nbytes,flags,sa,salen) != (ssize_t)nbytes)
 		err_sys ("(%s) error - sendto() failed", prog_name);
+}
+
+int mySendto (int fd, void *bufptr, size_t nbytes, int flags, const SA *sa, socklen_t salen)
+{
+	if (sendto(fd,bufptr,nbytes,flags,sa,salen) != (ssize_t)nbytes){
+		err_msg ("(%s) error - sendto() failed", prog_name); return -1;
+	}
+	
+	return 0;
 }
 
 void Send (int fd, void *bufptr, size_t nbytes, int flags)
@@ -167,6 +283,15 @@ void Inet_aton (const char *strptr, struct in_addr *addrptr) {
 		err_quit ("(%s) error - inet_aton() failed for '%s'", prog_name, strptr);
 }
 
+int myInet_aton (const char *strptr, struct in_addr *addrptr) {
+
+	if (inet_aton(strptr, addrptr) == 0){
+		err_msg("(%s) error - inet_aton() failed for '%s'", prog_name, strptr); return -1;
+	}
+	
+	return 0;
+}
+
 void Inet_pton (int af, const char *strptr, void *addrptr)
 {
 	int status = inet_pton(af, strptr, addrptr);
@@ -176,11 +301,32 @@ void Inet_pton (int af, const char *strptr, void *addrptr)
 		err_sys ("(%s) error - inet_pton() failed for '%s'", prog_name, strptr);
 }
 
+int myInet_pton (int af, const char *strptr, void *addrptr)
+{
+	int status = inet_pton(af, strptr, addrptr);
+	if (status == 0){
+		err_msg ("(%s) error - inet_pton() failed for '%s': invalid address", prog_name, strptr); return -1;
+	}
+	if (status < 0){
+		err_msg ("(%s) error - inet_pton() failed for '%s'", prog_name, strptr); return -1;	
+	}
+	
+	return 0;
+}
+
 
 void Inet_ntop (int af, const void *addrptr, char *strptr, size_t length)
 {
 	if ( inet_ntop(af, addrptr, strptr, length) == NULL)
 		err_quit ("(%s) error - inet_ntop() failed: invalid address", prog_name);
+}
+
+int myInet_ntop (int af, const void *addrptr, char *strptr, size_t length)
+{
+	if ( inet_ntop(af, addrptr, strptr, length) == NULL){
+		err_msg ("(%s) error - inet_ntop() failed: invalid address", prog_name); return -1;
+	}
+	return 0;
 }
 
 /* Added by Enrico Masala <masala@polito.it> Apr 2011 */
@@ -287,6 +433,16 @@ ssize_t Readn (int fd, void *ptr, size_t nbytes)
 	return n;
 }
 
+ssize_t myReadn (int fd, void *ptr, size_t nbytes)
+{
+	ssize_t n;
+
+	if ( (n = readn(fd, ptr, nbytes)) < 0){
+		err_msg ("(%s) error - readn() failed", prog_name); return -1;
+	}
+	return n;
+}
+
 
 /* read a whole buffer, for performance, and then return one char at a time */
 static ssize_t my_read (int fd, char *ptr)
@@ -353,6 +509,16 @@ ssize_t Readline (int fd, void *ptr, size_t maxlen)
 	return n;
 }
 
+ssize_t myReadline (int fd, void *ptr, size_t maxlen)
+{
+	ssize_t n;
+
+	if ( (n = readline(fd, ptr, maxlen)) < 0){
+		err_msg ("(%s) error - readline() failed", prog_name); return -1;
+	}
+	return n;
+}
+
 
 ssize_t readline_unbuffered (int fd, void *vptr, size_t maxlen)
 {
@@ -392,6 +558,17 @@ ssize_t Readline_unbuffered (int fd, void *ptr, size_t maxlen)
 	return n;
 }
 
+ssize_t myReadline_unbuffered (int fd, void *ptr, size_t maxlen)
+{
+	ssize_t n;
+
+	if ( (n = readline_unbuffered(fd, ptr, maxlen)) < 0){
+		err_msg ("(%s) error - readline_unbuffered() failed", prog_name); return -1;
+	}
+	return n;
+}
+
+
 
 ssize_t writen (int fd, const void *vptr, size_t n)
 {
@@ -424,6 +601,15 @@ void Writen (int fd, void *ptr, size_t nbytes)
 {
 	if (writen(fd, ptr, nbytes) != nbytes)
 		err_sys ("(%s) error - writen() failed", prog_name);
+}
+
+int myWriten (int fd, void *ptr, size_t nbytes)
+{
+	if (writen(fd, ptr, nbytes) != nbytes){
+		err_msg ("(%s) error - writen() failed", prog_name); return -1;
+	}
+	
+	return 0;
 }
 
 ssize_t sendn (int fd, const void *vptr, size_t n, int flags)
@@ -473,6 +659,21 @@ again:
 	return n;
 }
 
+int mySelect (int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset, struct timeval *timeout)
+{
+	int n;
+again:
+	if ( (n = select (maxfdp1, readset, writeset, exceptset, timeout)) < 0)
+	{
+		if (INTERRUPTED_BY_SIGNAL)
+			goto again;
+		else{
+			err_msg ("(%s) error - select() failed", prog_name); return -1;
+		}
+	}
+	return n;
+}
+
 
 pid_t Fork (void)
 {
@@ -481,6 +682,7 @@ pid_t Fork (void)
 		err_sys ("(%s) error - fork() failed", prog_name);
 	return pid;
 }
+
 
 #ifdef SOLARIS
 const char * hstrerror (int err)
@@ -611,6 +813,18 @@ Sock_ntop(const struct sockaddr *sa, socklen_t salen)
 
 	if ( (ptr = sock_ntop(sa, salen)) == NULL)
 		err_sys("sock_ntop error");	/* inet_ntop() sets errno */
+	return(ptr);
+}
+
+char *
+mySock_ntop(const struct sockaddr *sa, socklen_t salen)
+{
+	char	*ptr;
+
+	if ( (ptr = sock_ntop(sa, salen)) == NULL){
+		err_msg("sock_ntop error");	/* inet_ntop() sets errno */
+		return NULL;
+	}
 	return(ptr);
 }
 
