@@ -13,15 +13,15 @@ bool_t myStdIOReadXdr(int sockfd, xdr_function xdr_func, void *data){
 	if( (fp = fdopen(dup(sockfd), "r")) == NULL){
 		fprintf(stderr, "(%s) --- can't perform fdopen - %s\n", prog_name, strerror(errno)); return FALSE;
 	}
+	setbuf(fp, NULL);
 	xdrstdio_create(&xdrs, fp, XDR_DECODE);
-	printf("stdioread\n");
 	if(!xdr_func(&xdrs, data)){
 		fprintf(stderr, "(%s) --- can't read from xdr stream - %s\n", prog_name, strerror(errno)); 
 		xdr_destroy(&xdrs);
 		fclose(fp);
 		return FALSE;
 	}
-	printf("stdioread2\n");
+	
 	xdr_destroy(&xdrs);
 	fclose(fp);
 	return TRUE;
@@ -35,6 +35,7 @@ bool_t myStdIOWriteXdr(int sockfd, xdr_function xdr_func, void *data){
 	if( (fp = fdopen(dup(sockfd), "w")) == NULL){
 		fprintf(stderr, "(%s) --- can't perform fdopen - %s\n", prog_name, strerror(errno)); return FALSE;
 	}
+	setbuf(fp, NULL);
 	xdrstdio_create(&xdrs, fp, XDR_ENCODE);
 	if(!xdr_func(&xdrs, data)){
 		fprintf(stderr, "(%s) --- can't write on xdr stream - %s\n", prog_name, strerror(errno)); 
