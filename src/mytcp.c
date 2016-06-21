@@ -26,6 +26,37 @@ int RecvUNumber(SOCKET sock, uint32_t* num) {
     return res;
 }
 
+int myTcpReadUnbufferedAndWriteToFile(int sockfd, const char* filename){
+	char *buffer = (char*) malloc(DEFAULT_CHUNK_SIZE * sizeof(char));
+	int readBytes, numberOfReadBytes, chunkSize = 1, n;
+	FILE *fp = fopen(filename, "w");
+	if(fp == NULL)
+		return -1;
+
+	
+	/*read byte by byte, when there's nothing to read - EOF
+	stop reading*/
+	readBytes = (numberOfReadBytes = 0);
+	while(readBytes < DEFAULT_CHUNK_SIZE){
+		if(readBytes = DEFAULT_CHUNK_SIZE - 1){
+			/*if i reach the bottom of the input buffer, I duplicate its size*/
+			buffer = realloc(buffer, sizeof(DEFAULT_CHUNK_SIZE)*2);
+			readBytes = -1;
+		}
+		if( (n = read(sockfd, &buffer[numberOfReadBytes], 1)) < 0){
+			err_msg("read failed\n"); return -1;
+		} else if(n == 0)
+			break;	/*eof*/
+		fwrite(&buffer[numberOfReadBytes], 1, sizeof(char), fp);
+		numberOfReadBytes++; readBytes++;
+	}
+	
+	fclose(fp);
+	free(buffer);
+	
+ return numberOfReadBytes;
+}
+
 int myReadAndWriteToFile(SOCKET sockfd, const char* filename, uint32_t size){
 	int nread, nwrite, fd;
 	char *recvfile = (char*) malloc(size*sizeof(char));
@@ -136,7 +167,7 @@ int myTcpReadFromFileAndWriteChunks(int sockfd, const char *filePath, int fileSi
   int toBeSent = fileSize, n, myChunkSize;
   char *buffer;
 
-  if(chunkSize != 0){
+  if(chunkSize > 0){
 	myChunkSize = chunkSize;  
    } else
 	myChunkSize = DEFAULT_CHUNK_SIZE;

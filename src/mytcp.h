@@ -8,6 +8,7 @@ int RecvUNumber(SOCKET sock, uint32_t* num);
 int SendUNumber(SOCKET sock, uint32_t num);
 
 int myReadAndWriteToFile(SOCKET sockfd, const char* filename, uint32_t size);
+int myTcpReadUnbufferedAndWriteToFile(int sockfd, const char* filename);
 int myTcpReadChunksAndWriteToFile(int sockfd, const char *filePath, int fileSize, int *readByteCount);
 int myTcpReadFromFileAndWriteChunks(int sockfd, const char *filePath, int fileSize, int chunkSize);
 int myTcpReadAndWriteToFile(int sockfd, const char *filePath, int fileSize);

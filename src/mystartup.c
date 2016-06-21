@@ -4,6 +4,10 @@
 #include "mystartup.h"
 #define LISTENQ 15 
 
+/*getaddrinfo is capable of dealing with IPv4 and IPv6
+addresses as well as, with hostnames. So these functions are able
+to resolve hostnames too*/
+
 
 /*This functions performs the normal client steps:
  * create a TCP socket and connect to a server.
@@ -134,7 +138,9 @@ Tcp_listen(const char *host, const char *serv, socklen_t *addrlenp)
 
 
 /*sockaddr and socklen fields cannot be NULL because they
- * will be passed to sendTO and recvfrom*/
+ * will be passed to sendto and recvfrom - last two args
+ * of recvfrom, for client applications can be NULL (not for servers of course).
+ */
 int
 udp_client(const char *host, const char *serv, SA **saptr, socklen_t *lenp)
 {
